@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>5.reconcileChildFibers&createFiberFromElement&updateHostComponent&createChild&reconcileChildrenArray.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="react182-%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0">React18.2 源码学习</h1>
+<h2 id="1-%E6%AF%94%E8%BE%83-fiber-reconcilechildfibers">1 比较 fiber-reconcileChildFibers</h2>
+<h3 id="11-%E6%AF%94%E8%BE%83-fiber-reconcilechildfibers-srcreact-reconcilersrcreactchildfiberjs">1.1 比较 fiber-reconcileChildFibers-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> { REACT_ELEMENT_TYPE } <span class="hljs-keyword">from</span> <span class="hljs-string">'shared/ReactSymbols'</span>
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createChildReconciler</span>(<span class="hljs-params">shouldTrackSideEffects</span>) </span>{
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileSingleElement</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChild</span>) </span>{}
+
+  <span class="hljs-comment">/**
+   * 比较子 Fibers DOM-PIFF 就是用老的子 fiber 链表和新的虚拟 DOM 进行比较的过程
+   * <span class="hljs-doctag">@param <span class="hljs-variable">returnFiber</span></span> - 新的父 Fiber
+   * <span class="hljs-doctag">@param <span class="hljs-variable">currentFirstFiber</span></span> - 老 fiber 第一个子 fiber，current 一般来说指的是老 fiber
+   * <span class="hljs-doctag">@param <span class="hljs-variable">newChild</span></span> - 新的子虚拟 DOM h1 虚拟 DOM
+   */</span>
+  <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildFibers</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChild</span>) </span>{
+    <span class="hljs-comment">// 现在暂时只考虑新的节点只有一个的情况</span>
+    <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> newChild === <span class="hljs-string">'object'</span> &amp;&amp; newChild !== <span class="hljs-literal">null</span>) {
+      <span class="hljs-keyword">switch</span> (newChild.$$<span class="hljs-keyword">typeof</span>) {
+        <span class="hljs-keyword">case</span> REACT_ELEMENT_TYPE:
+          <span class="hljs-keyword">return</span> reconcileSingleElement(
+            returnFiber,
+            currentFirstFiber,
+            newChild
+          )
+        <span class="hljs-attr">default</span>:
+          <span class="hljs-keyword">break</span>
+      }
+    }
+  }
+  <span class="hljs-keyword">return</span> reconcileChildFibers
+}
+
+<span class="hljs-comment">// ...</span>
+</div></code></pre>
+<h3 id="12-react-%E5%8D%95%E8%8A%82%E7%82%B9%E5%88%9B%E5%BB%BA%E4%B8%AD%E8%BD%AC%E6%96%B9%E6%B3%95-reconcilesingleelement-srcreact-reconcilersrcreactchildfiberjs">1.2 React 单节点创建中转方法-reconcileSingleElement-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> { createFiberFromElement } <span class="hljs-keyword">from</span> <span class="hljs-string">'./ReactFiber'</span>
+
+<span class="hljs-comment">// ...</span>
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileSingleElement</span>(<span class="hljs-params">returnFiber, currentFirstFiber, element</span>) </span>{
+  <span class="hljs-comment">// 初次挂载，老节点 currentFirstFiber 是没有的，可以直接根据虚拟 DOM 创建新的 Fiber 节点</span>
+  <span class="hljs-keyword">const</span> created = createFiberFromElement(element)
+  created.return = returnFiber
+  <span class="hljs-keyword">return</span> created
+}
+</div></code></pre>
+<h3 id="13-%E5%88%9B%E5%BB%BA-fiber-%E8%8A%82%E7%82%B9-createfiberfromelement-srcreact-reconcilersrcreactfiberjs">1.3 创建 fiber 节点-createFiberFromElement-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiber.js">src/react-reconciler/src/ReactFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-comment">// ...</span>
+<span class="hljs-comment">/**
+ * 根据虚拟 DOM 创建 Fiber 节点
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">element</span></span>
+ */</span>
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createFiberFromElement</span>(<span class="hljs-params">element</span>) </span>{
+  <span class="hljs-keyword">const</span> { type, key, pendingProps } = element
+  <span class="hljs-keyword">return</span> createFiberFromTypeAndProps(type, key, pendingProps)
+}
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createFiberFromTypeAndProps</span>(<span class="hljs-params">type, key, pendingProps</span>) </span>{
+  <span class="hljs-keyword">const</span> fiber = createFiber(tag, pendingProps, key)
+  fiber.type = type
+  <span class="hljs-keyword">return</span> fiber
+}
+</div></code></pre>
+<h3 id="14-%E5%A2%9E%E5%8A%A0-react-%E6%A0%87%E7%AD%BE-indeterminatecomponents-srcreact-reconcilersrcreactworktagsjs">1.4 增加 React 标签-IndeterminateComponents-<a href="../../public/react18-learn/src/react-reconciler/src/ReactWorkTags.js">src/react-reconciler/src/ReactWorkTags.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-comment">// ...</span>
+<span class="hljs-comment">// 之后会讲到组件，组件分'类组件'和'函数组件'，因为它们都是函数，刚开始的时候</span>
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">const</span> IndeterminateComponents = <span class="hljs-number">2</span>
+<span class="hljs-comment">// ...</span>
+</div></code></pre>
+<h3 id="15-%E6%A0%B9%E6%8D%AE%E7%B1%BB%E5%9E%8B%E5%92%8C%E5%B1%9E%E6%80%A7%E5%88%9B%E5%BB%BA-fiber-createfiberfromtypeandprops-srcreact-reconcilersrcreactfiberjs">1.5 根据类型和属性创建 fiber-createFiberFromTypeAndProps-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiber.js">src/react-reconciler/src/ReactFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> { HostRoot, IndeterminateComponents } <span class="hljs-keyword">from</span> <span class="hljs-string">'./ReactWorkTags'</span>
+<span class="hljs-comment">// ...</span>
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createFiberFromTypeAndProps</span>(<span class="hljs-params">type, key, pendingProps</span>) </span>{
+  <span class="hljs-keyword">let</span> tag = IndeterminateComponents
+  <span class="hljs-comment">// 如果类型 type 是一字符串 span div ，说此此 Fiber 类型是一个原生组件</span>
+  <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> type === <span class="hljs-string">'string'</span>) {
+    tag = HostComponent
+  }
+  <span class="hljs-keyword">const</span> fiber = createFiber(tag, pendingProps, key)
+  fiber.type = type
+  <span class="hljs-keyword">return</span> fiber
+}
+</div></code></pre>
+<h2 id="2-%E8%AE%BE%E7%BD%AE%E5%89%AF%E4%BD%9C%E7%94%A8%E6%96%B9%E6%B3%95-placesinglechild--flags-%E7%94%A8%E6%B3%95--%E5%8E%9F%E7%94%9F%E7%BB%84%E4%BB%B6%E7%9A%84%E5%AD%90-fiber-%E9%93%BE%E8%A1%A8%E6%9E%84%E5%BB%BA%E6%96%B9%E6%B3%95-updatehostcomponent--%E5%AD%90%E8%99%9A%E6%8B%9F-dom-%E4%B8%BA%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E6%96%B9%E6%B3%95-reconcilechildrenarray">2 设置副作用方法-placeSingleChild &amp; Flags 用法 &amp; 原生组件的子 fiber 链表构建方法-updateHostComponent &amp; 子虚拟 DOM 为数组处理方法-reconcileChildrenArray</h2>
+<h3 id="21-%E8%AE%BE%E7%BD%AE%E5%89%AF%E4%BD%9C%E7%94%A8%E6%96%B9%E6%B3%95-%E5%88%9B%E5%BB%BA%E5%B9%B6%E8%B0%83%E7%94%A8-placesinglechild-srcreact-reconcilersrcreactchildfiberjs">2.1 设置副作用方法-创建并调用-placeSingleChild-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> { Placement } <span class="hljs-keyword">from</span> <span class="hljs-string">'./ReactFiberFlags'</span>
+
+<span class="hljs-comment">// ...</span>
+
+<span class="hljs-comment">/**
+ * 设置副作用
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">newFiber</span></span>
+ */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">placeSingleChild</span>(<span class="hljs-params">newFiber</span>) </span>{
+  <span class="hljs-comment">// 说明要添加副作用</span>
+  <span class="hljs-keyword">if</span> (shouldTrackSideEffects) {
+    <span class="hljs-comment">// 要在最后的提交阶段插入此节点，React 渲染分成渲染(创建Fiber树)和提交(更新真实DOM)二个阶段</span>
+    newFiber.flags |= Placement
+  }
+  <span class="hljs-keyword">return</span> newFiber
+}
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildFibers</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChild</span>) </span>{
+  <span class="hljs-comment">// 现在暂时只考虑新的节点只有一个的情况</span>
+  <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> newChild === <span class="hljs-string">'object'</span> &amp;&amp; newChild !== <span class="hljs-literal">null</span>) {
+    <span class="hljs-keyword">switch</span> (newChild.$$<span class="hljs-keyword">typeof</span>) {
+      <span class="hljs-keyword">case</span> REACT_ELEMENT_TYPE:
+        <span class="hljs-keyword">return</span> placeSingleChild(
+          reconcileSingleElement(returnFiber, currentFirstFiber, newChild)
+        )
+      <span class="hljs-attr">default</span>:
+        <span class="hljs-keyword">break</span>
+    }
+  }
+}
+</div></code></pre>
+<h3 id="22-react-flags-%E7%94%A8%E6%B3%95-flags-doc12js">2.2 React Flags 用法-Flags-<a href="../../public/react18-learn/doc/12.js">doc/12.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">let</span> flags = <span class="hljs-number">0b00</span>
+flags |= <span class="hljs-number">0b10</span> <span class="hljs-comment">// 0b10</span>
+flags |= <span class="hljs-number">0b01</span> <span class="hljs-comment">// 0b11</span>
+<span class="hljs-built_in">console</span>.log(flags) <span class="hljs-comment">// 3</span>
+<span class="hljs-built_in">console</span>.log(flags.toString(<span class="hljs-number">2</span>)) <span class="hljs-comment">// 11</span>
+
+<span class="hljs-comment">// 每个虚拟 DOM 会有一个类型 $$typeof  REACT_ELEMENT_TYPE，React 元素类型，也就是虚拟 DOM</span>
+</div></code></pre>
+<h3 id="23-%E5%8E%9F%E7%94%9F%E7%BB%84%E4%BB%B6%E7%9A%84%E5%AD%90-fiber-%E9%93%BE%E8%A1%A8%E6%9E%84%E5%BB%BA%E6%96%B9%E6%B3%95-updatehostcomponent-srcreact-reconcilersrcreactfiberbeginworkjs">2.3 原生组件的子 fiber 链表构建方法-updateHostComponent-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiberBeginWork.js">src/react-reconciler/src/ReactFiberBeginWork.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-comment">/**
+ * 构建原生组件的子 fiber 链表
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">current</span></span> - 老 fiber
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">workInProgress</span></span> - 新 fiber
+ */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateHostComponent</span>(<span class="hljs-params">current, workInProgress</span>) </span>{
+  <span class="hljs-keyword">const</span> { type } = workInProgress
+  <span class="hljs-keyword">const</span> nextProps = workInProgress.pendingProps
+  <span class="hljs-keyword">let</span> nextChildren = nextProps.children
+  reconcileChildren(current, workInProgress, nextChildren)
+  <span class="hljs-keyword">return</span> workInProgress.child
+}
+</div></code></pre>
+<h3 id="24-%E5%AD%90%E8%99%9A%E6%8B%9F-dom-%E4%B8%BA%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E6%96%B9%E6%B3%95-%E8%B0%83%E7%94%A8-srcreact-reconcilersrcreactchildfiberjs">2.4 子虚拟 DOM 为数组处理方法-调用-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildFibers</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChild</span>) </span>{
+  <span class="hljs-comment">// 现在暂时只考虑新的节点只有一个的情况</span>
+  <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> newChild === <span class="hljs-string">'object'</span> &amp;&amp; newChild !== <span class="hljs-literal">null</span>) {
+    <span class="hljs-keyword">switch</span> (newChild.$$<span class="hljs-keyword">typeof</span>) {
+      <span class="hljs-keyword">case</span> REACT_ELEMENT_TYPE:
+        <span class="hljs-keyword">return</span> placeSingleChild(
+          reconcileSingleElement(returnFiber, currentFirstFiber, newChild)
+        )
+      <span class="hljs-attr">default</span>:
+        <span class="hljs-keyword">break</span>
+    }
+  }
+  <span class="hljs-comment">// newChild [hello文本节点，span虚拟DOM元素]</span>
+  <span class="hljs-keyword">if</span> (isArray(newChild)) {
+    <span class="hljs-keyword">return</span> reconcileChildrenArray(returnFiber, currentFirstFiber, newChild)
+  }
+  <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>
+}
+</div></code></pre>
+<h3 id="25-%E5%AD%90%E8%99%9A%E6%8B%9F-dom-%E4%B8%BA%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E6%96%B9%E6%B3%95-%E5%88%9B%E5%BB%BA-reconcilechildrenarray-srcreact-reconcilesrcreactchildfiberjs">2.5 子虚拟 DOM 为数组处理方法-创建-reconcileChildrenArray-<a href="../../public/react18-learn/src/react-reconcile/src/ReactChildFiber.js">src/react-reconcile/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createChild</span>(<span class="hljs-params"></span>) </span>{}
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildrenArray</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChildren</span>) </span>{
+  <span class="hljs-keyword">let</span> resultingFirstChild = <span class="hljs-literal">null</span> <span class="hljs-comment">// 返回的第一个新儿子</span>
+  <span class="hljs-keyword">let</span> previousNewFiber = <span class="hljs-literal">null</span> <span class="hljs-comment">//上一个的一个新的 fiber</span>
+  <span class="hljs-keyword">let</span> newIdx = <span class="hljs-number">0</span>
+  <span class="hljs-keyword">for</span> (; newIdx &lt; newChildren.length; newIdx++) {
+    <span class="hljs-keyword">const</span> newFiber = createChild(returnFiber, newChildren[newIdx])
+  }
+}
+</div></code></pre>
+<h2 id="3-%E7%94%9F%E6%88%90%E5%AD%90%E8%8A%82%E7%82%B9%E6%96%B9%E6%B3%95-createchild">3 生成子节点方法-createChild</h2>
+<h3 id="31-%E7%94%9F%E6%88%90%E5%AD%90%E8%8A%82%E7%82%B9%E6%96%B9%E6%B3%95-%E5%88%9B%E5%BB%BA-createchild-srcreact-reconcilesrcreactchildfiberjs">3.1 生成子节点方法-创建-createChild-<a href="../../public/react18-learn/src/react-reconcile/src/ReactChildFiber.js">src/react-reconcile/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createChild</span>(<span class="hljs-params">returnFiber, newChild</span>) </span>{
+  <span class="hljs-keyword">if</span> (
+    (<span class="hljs-keyword">typeof</span> newChild == <span class="hljs-string">'string'</span> &amp;&amp; newChild !== <span class="hljs-string">''</span>) ||
+    <span class="hljs-keyword">typeof</span> newChild === <span class="hljs-string">'number'</span>
+  ) {
+    <span class="hljs-keyword">const</span> created = createFiberFromText(<span class="hljs-string">`<span class="hljs-subst">${newChild}</span>`</span>)
+    created.return = returnFiber
+    <span class="hljs-keyword">return</span> created
+  }
+}
+</div></code></pre>
+<h3 id="32-%E7%94%9F%E6%88%90%E6%96%87%E6%9C%AC%E8%8A%82%E7%82%B9%E6%96%B9%E6%B3%95-%E5%88%9B%E5%BB%BA-createfiberfromtext-srcreact-reconcilersrcreactfiberjs">3.2 生成文本节点方法-创建-createFiberFromText-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiber.js">src/react-reconciler/src/ReactFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createFiberFromText</span>(<span class="hljs-params">content</span>) </span>{
+  <span class="hljs-keyword">return</span> createFiber(HostText, content, <span class="hljs-literal">null</span>)
+}
+</div></code></pre>
+<h3 id="33-%E7%94%9F%E6%88%90%E5%AD%90%E8%8A%82%E7%82%B9%E6%96%B9%E6%B3%95-%E8%A1%A5%E5%85%85-createchild-srcreact-reconcilesrcreactchildfiberjs">3.3 生成子节点方法-补充-createChild-<a href="../../public/react18-learn/src/react-reconcile/src/ReactChildFiber.js">src/react-reconcile/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createChild</span>(<span class="hljs-params">returnFiber, newChild</span>) </span>{
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-keyword">if</span> (<span class="hljs-keyword">typeof</span> newChild === <span class="hljs-string">'object'</span> &amp;&amp; newChild !== <span class="hljs-literal">null</span>) {
+    <span class="hljs-keyword">switch</span> (newChild.$$<span class="hljs-keyword">typeof</span>) {
+      <span class="hljs-keyword">case</span> REACT_ELEMENT_TYPE:
+        <span class="hljs-keyword">const</span> created = createFiberFromElement(newChild)
+        created.return = returnFiber
+        <span class="hljs-keyword">return</span> created
+      <span class="hljs-attr">default</span>:
+        <span class="hljs-keyword">break</span>
+    }
+  }
+  <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>
+}
+</div></code></pre>
+<h3 id="34-%E5%AD%90%E8%99%9A%E6%8B%9F-dom-%E4%B8%BA%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E6%96%B9%E6%B3%95-%E8%A1%A5%E5%85%85-reconcilechildrenarray-srcreact-reconcilesrcreactchildfiberjs">3.4 子虚拟 DOM 为数组处理方法-补充-reconcileChildrenArray-<a href="../../public/react18-learn/src/react-reconcile/src/ReactChildFiber.js">src/react-reconcile/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">placeChild</span>(<span class="hljs-params">newFiber, newIdx</span>) </span>{}
+
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildrenArray</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChildren</span>) </span>{
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-keyword">let</span> newIdx = <span class="hljs-number">0</span> <span class="hljs-comment">// fix</span>
+  <span class="hljs-keyword">for</span> (; newIdx &lt; newChildren.length; newIdx++) {
+    <span class="hljs-keyword">const</span> newFiber = createChild(returnFiber, newChildren[newIdx])
+    <span class="hljs-keyword">if</span> (newFiber === <span class="hljs-literal">null</span>) <span class="hljs-keyword">continue</span>
+    placeChild(newFiber, newIdx)
+  }
+}
+</div></code></pre>
+<h3 id="35-%E7%94%9F%E6%88%90-fiber-%E8%8A%82%E7%82%B9-%E8%A1%A5%E5%85%85-fibernode-srcreact-reconcilersrcreactfiberjs">3.5 生成 fiber 节点-补充-FiberNode-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiber.js">src/react-reconciler/src/ReactFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">FiberNode</span>(<span class="hljs-params">tag, pendingProps, key</span>) </span>{
+  <span class="hljs-comment">// ...</span>
+  <span class="hljs-keyword">this</span>.index = <span class="hljs-number">0</span>
+}
+</div></code></pre>
+<h2 id="4-placechild--reconcilechildrenarray--updatehostcomponent--shouldsettextcontent--jsconfigjson">4 placeChild &amp; reconcileChildrenArray &amp; updateHostComponent &amp; shouldSetTextContent &amp; jsconfig.json</h2>
+<h3 id="41-%E6%8F%92%E5%85%A5%E5%AE%B9%E5%99%A8%E6%96%B9%E6%B3%95-%E8%A1%A5%E5%85%85-placechild-srcreact-reconcilesrcreactchildfiberjs">4.1 插入容器方法-补充-placeChild-<a href="../../public/react18-learn/src/react-reconcile/src/ReactChildFiber.js">src/react-reconcile/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">placeChild</span>(<span class="hljs-params">newFiber, newIdx</span>) </span>{
+  newFiber.index = newIdx
+  <span class="hljs-keyword">if</span> (shouldTrackSideEffects) {
+    <span class="hljs-comment">// 如果一个 fiber 它的 flags 上有Placement, 说明此节点需要创建真实 DOM 并且插入到父容器中</span>
+    <span class="hljs-comment">// 如果父 fiber 节点是初次挂载， shouldTrackSideEffects === false, 不需要添加 flags</span>
+    <span class="hljs-comment">// 这种情况下会在完成阶段把所有的子节点全部添加到自己身上</span>
+    newFiber.flags |= Placement
+  }
+}
+</div></code></pre>
+<h3 id="42-%E5%AD%90%E8%99%9A%E6%8B%9F-dom-%E4%B8%BA%E6%95%B0%E7%BB%84%E5%A4%84%E7%90%86%E6%96%B9%E6%B3%95-%E8%A1%A5%E5%85%85-reconcilechildrenarray-srcreact-reconcilersrcreactchildfiberjs">4.2 子虚拟 DOM 为数组处理方法-补充-reconcileChildrenArray-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">reconcileChildrenArray</span>(<span class="hljs-params">returnFiber, currentFirstFiber, newChildren</span>) </span>{
+  <span class="hljs-keyword">let</span> resultingFirstChild = <span class="hljs-literal">null</span> <span class="hljs-comment">// 返回的第一个新儿子</span>
+  <span class="hljs-keyword">let</span> previousNewFiber = <span class="hljs-literal">null</span> <span class="hljs-comment">// 上一个的一个新的 fiber</span>
+  <span class="hljs-keyword">let</span> newIdx = <span class="hljs-number">0</span>
+  <span class="hljs-keyword">for</span> (; newIdx &lt; newChildren.length; newIdx++) {
+    <span class="hljs-keyword">const</span> newFiber = createChild(returnFiber, newChildren[newIdx])
+    <span class="hljs-keyword">if</span> (newFiber === <span class="hljs-literal">null</span>) <span class="hljs-keyword">continue</span>
+    placeChild(newFiber, newIdx)
+    <span class="hljs-comment">//  如果 previousNewFiber 为 null，说明这是第一个 fiber</span>
+    <span class="hljs-keyword">if</span> (previousNewFiber === <span class="hljs-literal">null</span>) {
+      resultingFirstChild = newFiber <span class="hljs-comment">// 这个 newFiber 就是大儿子</span>
+    } <span class="hljs-keyword">else</span> {
+      <span class="hljs-comment">// 否则说明不是大儿子，就把这个 newFiber 添加上一个子节点后面</span>
+      previousNewFiber.sibling = newFiber
+    }
+    previousNewFiber = newFiber
+  }
+  <span class="hljs-keyword">return</span> resultingFirstChild
+}
+</div></code></pre>
+<h3 id="43-%E5%8E%9F%E7%94%9F%E7%BB%84%E4%BB%B6%E7%9A%84%E5%AD%90-fiber-%E9%93%BE%E8%A1%A8%E6%9E%84%E5%BB%BA%E6%96%B9%E6%B3%95-%E8%A1%A5%E5%85%85-updatehostcomponent-srcreact-reconcilersrcreactfiberbeginworkjs">4.3 原生组件的子 fiber 链表构建方法-补充-updateHostComponent-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiberBeginWork.js">src/react-reconciler/src/ReactFiberBeginWork.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> { shouldSetTextContent } <span class="hljs-keyword">from</span> <span class="hljs-string">'react-dom-bindings/src/ReactDOMHostConfig'</span>
+
+<span class="hljs-comment">// ...</span>
+
+<span class="hljs-comment">/**
+ * 构建原生组件的子 fiber 链表
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">current</span></span> - 老 fiber
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">workInProgress</span></span> - 新 fiber
+ */</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">updateHostComponent</span>(<span class="hljs-params">current, workInProgress</span>) </span>{
+  <span class="hljs-keyword">const</span> { type } = workInProgress
+  <span class="hljs-keyword">const</span> nextProps = workInProgress.pendingProps
+  <span class="hljs-keyword">let</span> nextChildren = nextProps.children
+  <span class="hljs-comment">// 判断当前虚拟 DOM 它的儿子是不是一个文本独生子</span>
+  <span class="hljs-keyword">const</span> isDirectTextChild = shouldSetTextContent(type, nextProps)
+  <span class="hljs-keyword">if</span> (isDirectTextChild) {
+    nextChildren = <span class="hljs-literal">null</span>
+  }
+  reconcileChildren(current, workInProgress, nextChildren)
+  <span class="hljs-keyword">return</span> workInProgress.child
+}
+</div></code></pre>
+<h3 id="44-%E5%88%A4%E6%96%AD%E6%98%AF%E5%90%A6%E6%98%AF%E6%96%87%E6%9C%AC%E7%8B%AC%E7%94%9F%E5%AD%90-%E5%88%9B%E5%BB%BA-shouldsettextcontent-srcreact-dom-bindingssrcreactdomhostconfigjs">4.4 判断是否是文本独生子-创建-shouldSetTextContent-<a href="../../public/react18-learn/src/react-dom-bindings/src/ReactDOMHostConfig.js">src/react-dom-bindings/src/ReactDOMHostConfig.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">shouldSetTextContent</span>(<span class="hljs-params">type, props</span>) </span>{
+  <span class="hljs-keyword">return</span> (
+    <span class="hljs-keyword">typeof</span> props.children === <span class="hljs-string">'string'</span> || <span class="hljs-keyword">typeof</span> props.children === <span class="hljs-string">'number'</span>
+  )
+}
+</div></code></pre>
+<h3 id="45-vscode-%E6%8C%87%E5%90%91%E4%BD%8D%E7%BD%AE%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6-%E8%A1%A5%E5%85%85-jsconfigjson-jsconfigjson">4.5 vscode 指向位置配置文件-补充-jsconfig.json-<a href="../../public/react18-learn/jsconfig.json">jsconfig.json</a></h3>
+<pre class="hljs"><code><div><span class="hljs-comment">// ...</span>
+<span class="hljs-string">"shared/*"</span>: [
+  <span class="hljs-string">"src/shared/*"</span>
+],
+<span class="hljs-string">"react-dom-bindings/*"</span>: [
+  <span class="hljs-string">"src/react-dom-bindings/*"</span>
+]
+</div></code></pre>
+<h2 id="5-viteconfigjs--createfiberfromelement--isarray">5 vite.config.js &amp; createFiberFromElement &amp; isArray</h2>
+<h3 id="51-vite-%E9%A1%B9%E7%9B%AE%E6%96%87%E4%BB%B6%E4%BD%8D%E7%BD%AE%E9%85%8D%E7%BD%AE-%E8%A1%A5%E5%85%85-viteconfigjs-viteconfigjs">5.1 vite 项目文件位置配置-补充 vite.config.js-<a href="../../public/react18-learn/vite.config.js">vite.config.js</a></h3>
+<pre class="hljs"><code><div>alias: {
+  <span class="hljs-string">'react-dom-bindings'</span>: path.posix.resolve(<span class="hljs-string">'src/react-dom-bindings'</span>),
+}
+</div></code></pre>
+<h3 id="52-%E6%A0%B9%E6%8D%AE%E8%99%9A%E6%8B%9F-dom-%E5%88%9B%E5%BB%BA-fiber-%E8%8A%82%E7%82%B9%E6%96%B9%E6%B3%95-fix-createfiberfromelement-srcreact-reconcilersrcreactfiberjs">5.2 根据虚拟 DOM 创建 Fiber 节点方法-FIX-createFiberFromElement-<a href="../../public/react18-learn/src/react-reconciler/src/ReactFiber.js">src/react-reconciler/src/ReactFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-comment">/**
+ * 根据虚拟 DOM 创建 Fiber 节点
+ * <span class="hljs-doctag">@param <span class="hljs-type">{*}</span> <span class="hljs-variable">element</span></span>
+ */</span>
+<span class="hljs-keyword">export</span> <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">createFiberFromElement</span>(<span class="hljs-params">element</span>) </span>{
+  <span class="hljs-keyword">const</span> { type, key, <span class="hljs-attr">props</span>: pendingProps } = element
+  <span class="hljs-keyword">return</span> createFiberFromTypeAndProps(type, key, pendingProps)
+}
+</div></code></pre>
+<h3 id="53-%E5%88%A4%E6%96%AD%E6%95%B0%E7%BB%84%E6%96%B9%E6%B3%95-%E5%BC%95%E5%85%A5-isarray-srcreact-reconcilersrcreactchildfiberjs">5.3 判断数组方法-引入-isArray-<a href="../../public/react18-learn/src/react-reconciler/src/ReactChildFiber.js">src/react-reconciler/src/ReactChildFiber.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">import</span> isArray <span class="hljs-keyword">from</span> <span class="hljs-string">'shared/isArray'</span>
+</div></code></pre>
+<h3 id="54-%E5%88%A4%E6%96%AD%E6%95%B0%E7%BB%84%E6%96%B9%E6%B3%95-%E5%88%9B%E5%BB%BA%E5%B9%B6%E5%AF%BC%E5%87%BA-srcsharedisarrayjs">5.4 判断数组方法-创建并导出-<a href="../../public/react18-learn/src/shared/isArray.js">src/shared/isArray.js</a></h3>
+<pre class="hljs"><code><div><span class="hljs-keyword">const</span> { isArray } = <span class="hljs-built_in">Array</span>
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> isArray
+</div></code></pre>
+<h3 id="55-%E8%B0%83%E8%AF%95">5.5 调试</h3>
+<ul>
+<li>浏览器正确打印
+<ul>
+<li>beginWork HostRoot</li>
+<li>beginWork HostComponent</li>
+<li>beginWork HostText</li>
+</ul>
+</li>
+</ul>
+
+</body>
+</html>
