@@ -1,5 +1,10 @@
 import { NoFlags } from './ReactFiberFlags'
-import { HostComponent, HostRoot, HostText, IndeterminateComponents } from './ReactWorkTags'
+import {
+  HostComponent,
+  HostRoot,
+  HostText,
+  IndeterminateComponent,
+} from './ReactWorkTags'
 /**
  * @param {*} tag - fiber 的类型 函数组件0; 类组件 1; 原生组件 5; 根元素 3;
  * @param {*} pendingProps - 新属性，等待处理或者说生效的属性
@@ -69,7 +74,7 @@ export function createWorkInProgress(current, pendingProps) {
 }
 
 function createFiberFromTypeAndProps(type, key, pendingProps) {
-  let tag = IndeterminateComponents
+  let tag = IndeterminateComponent
   // 如果类型 type 是一字符串 span div ，说此此 Fiber 类型是一个原生组件
   if (typeof type === 'string') {
     tag = HostComponent

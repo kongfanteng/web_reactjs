@@ -1,8 +1,14 @@
-import logger from 'shared/logger'
+import { shouldSetTextContent } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
 import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber'
 import { processUpdateQueue } from './ReactFiberClassUpdateQueue'
-import { HostComponent, HostRoot, HostText } from './ReactWorkTags'
-import { shouldSetTextContent } from 'react-dom-bindings/src/ReactDOMHostConfig'
+import { renderWithHooks } from './ReactFiberHooks'
+import {
+  FunctionComponent,
+  HostComponent,
+  HostRoot,
+  HostText,
+  IndeterminateComponent,
+} from './ReactWorkTags'
 
 /**
  * 根据新的虚拟 DOM 生成新的 Fiber 链表
@@ -58,13 +64,41 @@ function updateHostComponent(current, workInProgress) {
  * @param {*} workInProgress - 新的fiber
  */
 export function beginWork(current, workInProgress) {
-  logger('beginWork', workInProgress)
+  // logger(' '.repeat(indent.number) + 'beginWork', workInProgress)
+  // indent.number += 2
   switch (workInProgress.tag) {
+    // 因为在 React 里组件其实有两种，一种是函数组件，一种是类组件，但是它们都是都是函数
+    case IndeterminateComponent:
+      return mountIndeterminateComponent(
+        current,
+        workInProgress,
+        workInProgress.type
+      )
     case HostRoot:
       return updateHostRoot(current, workInProgress)
     case HostComponent:
       return updateHostComponent(current, workInProgress)
     case HostText:
       return null
+    default:
+      return null
   }
+}
+
+/**
+ * 挂载函数组件
+ * @param {*} current - 老 fiber
+ * @param {*} workInProgress 新的 fiber
+ * @param {*} Component 组件类型，也就是函数组件的定义
+ */
+export function mountIndeterminateComponent(
+  current,
+  workInProgress,
+  Component
+) {
+  const props = workInProgress.pendingProps
+  const value = renderWithHooks(current, workInProgress, Component, props)
+  workInProgress.tag = FunctionComponent
+  reconcileChildren(current, workInProgress, value)
+  return workInProgress.child
 }

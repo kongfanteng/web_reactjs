@@ -16,3 +16,6 @@ export default function (prefix, workInProgress) {
   console.log(`${prefix} ${str}`)
   // return str
 }
+
+let indent = { number: 0 }
+export { indent }
