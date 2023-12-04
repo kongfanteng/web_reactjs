@@ -79,7 +79,7 @@ function printFinishedWork(fiber) {
 
 function commitRoot(root) {
   const { finishedWork } = root
-  printFinishedWork(finishedWork)
+  // printFinishedWork(finishedWork)
   // 判断子树有没有副作用
   const subtreeHasEffects =
     (finishedWork.subtreeFlags & MutationMask) !== NoFlags
@@ -88,7 +88,7 @@ function commitRoot(root) {
   if (subtreeHasEffects || rootHasEffect) {
     commitMutationEffectsOnFiber(finishedWork, root)
   }
-  //等 DOM 变更后, 就可以把让 root 的 current 指向新的 fiber 树
+  // 等 DOM 变更后, 就可以把让 root 的 current 指向新的 fiber 树
   root.current = finishedWork
 }
 

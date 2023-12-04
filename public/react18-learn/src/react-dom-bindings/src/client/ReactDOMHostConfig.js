@@ -1,4 +1,5 @@
 import { setInitialProperties } from './ReactDOMComponent'
+import { precacheFiberNode, updateFiberProps } from './ReactDOMComponentTree'
 
 export function shouldSetTextContent(type, props) {
   return (
@@ -6,9 +7,18 @@ export function shouldSetTextContent(type, props) {
   )
 }
 
-export function createInstance(type) {
+/**
+ * 在原生组件初次挂载的时候，会通过此方法创建真实DOM
+ * @param {*} type 类型 span
+ * @param {*} props 属性
+ * @param {*} internalInstanceHandle - DOM 对应 fiber
+ */
+export function createInstance(type, props, internalInstanceHandle) {
   const domElement = document.createElement(type)
-  // updateFiberProps(domElement, props)
+  // 预先缓存 fiber 节点到 DOM 元素上
+  precacheFiberNode(internalInstanceHandle, domElement)
+  // 把属性直接保存在 DOMElement 的属性上
+  updateFiberProps(domElement, props)
   return domElement
 }
 
