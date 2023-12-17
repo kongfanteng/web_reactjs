@@ -74,6 +74,16 @@ export function beginWork(current, workInProgress) {
         workInProgress,
         workInProgress.type
       )
+    case FunctionComponent: {
+      const Component = workInProgress.type
+      const nextProps = workInProgress.pendingProps
+      return updateFunctionComponent(
+        current,
+        workInProgress,
+        Component,
+        nextProps
+      )
+    }
     case HostRoot:
       return updateHostRoot(current, workInProgress)
     case HostComponent:
@@ -100,5 +110,21 @@ export function mountIndeterminateComponent(
   const value = renderWithHooks(current, workInProgress, Component, props)
   workInProgress.tag = FunctionComponent
   reconcileChildren(current, workInProgress, value)
+  return workInProgress.child
+}
+
+export function updateFunctionComponent(
+  current,
+  workInProgress,
+  Component,
+  props
+) {
+  const nextChildren = renderWithHooks(
+    current,
+    workInProgress,
+    Component,
+    props
+  )
+  reconcileChildren(current, workInProgress, nextChildren)
   return workInProgress.child
 }

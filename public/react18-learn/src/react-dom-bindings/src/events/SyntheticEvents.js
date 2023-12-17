@@ -36,7 +36,7 @@ function createSyntheticEvent(inter) {
       if (!inter.hasOwnProperty(propName)) {
         continue
       }
-      this[propName] = inter[propName]
+      this[propName] = nativeEvent[propName]
     }
     // 是否已经阻止默认事件
     this.isDefaultPrevented = functionThatReturnsFalse
@@ -59,9 +59,9 @@ function createSyntheticEvent(inter) {
       if (event.stopPropagation) {
         event.stopPropagation()
       } else {
-        event.returnValue = true
+        event.cancelBubble = true
       }
-      this.isDefultPrevented = functionThatReturnsTrue
+      this.isPropagationStopped = functionThatReturnsTrue
     },
   })
   return SyntheticBaseEvent

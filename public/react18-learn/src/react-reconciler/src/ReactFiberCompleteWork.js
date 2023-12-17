@@ -3,10 +3,16 @@ import {
   createInstance,
   createTextInstance,
   finalizeInitialChildren,
+  prepareUpdate,
 } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
 import logger, { indent } from 'shared/logger'
-import { NoFlags } from './ReactFiberFlags'
-import { HostComponent, HostRoot, HostText } from './ReactWorkTags'
+import { NoFlags, Update } from './ReactFiberFlags'
+import {
+  FunctionComponent,
+  HostComponent,
+  HostRoot,
+  HostText,
+} from './ReactWorkTags'
 
 /**
  * 把当前的完成的 fiber 所有的子节点对应的真实 DOM 都挂载到自己父 parent 真实 DOM 节点上
@@ -45,7 +51,7 @@ function appendAllChildren(parent, workInProgress) {
  * @param {*} workInProgress - 新的构建的 fiber
  */
 export function completeWork(current, workInProgress) {
-  indent.number -= 2
+  // indent.number -= 2
   // logger(' '.repeat(indent.number) + 'completeWork', workInProgress)
   const newProps = workInProgress.pendingProps
   switch (workInProgress.tag) {
@@ -56,11 +62,18 @@ export function completeWork(current, workInProgress) {
     case HostComponent:
       // 创建真实的 DOM 节点
       const { type } = workInProgress
-      const instance = createInstance(type, newProps, workInProgress)
-      // 把自己所有的儿子都添加到自己的身上
-      appendAllChildren(instance, workInProgress)
-      workInProgress.stateNode = instance
-      finalizeInitialChildren(instance, type, newProps)
+      if (current !== null && workInProgress.stateNode !== null) {
+        updateHostComponent(current, workInProgress, type, newProps)
+      } else {
+        const instance = createInstance(type, newProps, workInProgress)
+        // 把自己所有的儿子都添加到自己的身上
+        appendAllChildren(instance, workInProgress)
+        workInProgress.stateNode = instance
+        finalizeInitialChildren(instance, type, newProps)
+      }
+      bubbleProperties(workInProgress)
+      break
+    case FunctionComponent:
       bubbleProperties(workInProgress)
       break
     case HostText:
@@ -82,4 +95,30 @@ function bubbleProperties(completedWork) {
     child = child.sibling
   }
   completedWork.subtreeFlags = subtreeFlags
+}
+/**
+ * description: 节点更新函数
+ * @param {*} current - 老 fiber
+ * @param {*} workInProgress - 新 fiber
+ * @param {*} type - 类型
+ * @param {*} newProps - 新属性 props
+ */
+function updateHostComponent(current, workInProgress, type, newProps) {
+  const oldProps = current.memoizedProps // 老的属性
+  const instance = workInProgress.stateNode // 老的 DOM 节点
+  // 比较新老属性，收集属性的差异
+  const updatePayload = prepareUpdate(instance, type, oldProps, newProps)
+  // console.log('updatePayload:', updatePayload)
+  // 让原生组件的新 fiber 更新队列等于 []
+  workInProgress.updateQueue = updatePayload
+  if (updatePayload) {
+    markUpdate(workInProgress)
+  }
+}
+/**
+ * description: 更新阶段标记函数
+ * @param {*} workInProgress - 新 fiber
+ */
+function markUpdate(workInProgress) {
+  workInProgress.flags |= Update
 }

@@ -100,7 +100,50 @@ function dispatchEventForPlugins(
     eventSystemFlags,
     targetContainer
   )
-  console.log('dispatchQueue', dispatchQueue)
+  processDispatchQueue(dispatchQueue, eventSystemFlags)
+}
+
+function processDispatchQueue(dispatchQueue, eventSystemFlags) {
+  // 判断是否在捕获阶段
+  const isCapturePhase = (eventSystemFlags & IS_CAPTURE_PHASE) !== 0
+  for (let i = 0; i < dispatchQueue.length; i++) {
+    const { event, listeners } = dispatchQueue[i]
+    processDispatchQqueueItemsInOrder(event, listeners, isCapturePhase)
+  }
+}
+
+function processDispatchQqueueItemsInOrder(
+  event,
+  dispathchListeners,
+  isCapturePhase
+) {
+  if (isCapturePhase) {
+    // dispathchListeners[子, 父]
+    for (let i = dispathchListeners.length - 1; i >= 0; i--) {
+      const { listener, currentTarget } = dispathchListeners[i]
+      if (event.isPropagationStopped()) {
+        return
+      }
+      executeDispatch(event, listener, currentTarget)
+      // listener(event)
+    }
+  } else {
+    for (let i = 0; i < dispathchListeners.length; i++) {
+      const { listener, currentTarget } = dispathchListeners[i]
+      if (event.isPropagationStopped()) {
+        return
+      }
+      executeDispatch(event, listener, currentTarget)
+    }
+  }
+}
+
+function executeDispatch(event, listener, currentTarget) {
+  // 合成事件实例 currentTarget 是在不断的变化的
+  // event nativeEventTarget 它的是原始的事件源，是永远不变的
+  // event currentTarget 当前的事件源，它是会随着事件回调的执行不断变化的
+  event.currentTarget = currentTarget
+  listener(event)
 }
 
 function extractEvents(
@@ -138,10 +181,19 @@ export function accumulateSinglePhaseListeners(
     if (tag === HostComponent && stateNode !== null) {
       const listener = getListener(instance, reactEventName)
       if (listener) {
-        listeners.push(listener)
+        listeners.push(createDispatchListener(instance, listener, stateNode)) // 创建 dispatch listener
       }
     }
     instance = instance.return
   }
   return listeners
+}
+/**
+ * description:
+ * @param {*} instance
+ * @param {*} listener
+ * @param {*} currentTarget
+ */
+function createDispatchListener(instance, listener, currentTarget) {
+  return { instance, listener, currentTarget }
 }

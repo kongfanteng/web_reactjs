@@ -3,15 +3,23 @@ import { createWorkInProgress } from './ReactFiber'
 import { beginWork } from './ReactFiberBeginWork'
 import { commitMutationEffectsOnFiber } from './ReactFiberCommitWork'
 import { completeWork } from './ReactFiberCompleteWork'
-import { MutationMask, NoFlags, Placement, Update } from './ReactFiberFlags'
+import {
+  ChildDeletion,
+  MutationMask,
+  NoFlags,
+  Placement,
+  Update,
+} from './ReactFiberFlags'
 import {
   FunctionComponent,
   HostComponent,
   HostRoot,
   HostText,
 } from './ReactWorkTags'
+import { finishQueueingConcurrentUpdates } from './ReactFiberConcurrentUpdates'
 
 let workInProgress = null
+let workInProgressRoot = null
 
 /**
  * 计划更新 root
@@ -23,6 +31,8 @@ export function scheduleUpdateOnFiber(root) {
   ensureRootIsScheduled(root)
 }
 function ensureRootIsScheduled(root) {
+  if (workInProgressRoot) return
+  workInProgressRoot = root
   //告诉 浏览器要执行 performConcurrentWorkOnRoot
   scheduleCallback(performConcurrentWorkOnRoot.bind(null, root))
 }
@@ -33,14 +43,23 @@ function performConcurrentWorkOnRoot(root) {
   const finishedWork = root.current.alternate
   root.finishedWork = finishedWork
   commitRoot(root)
+  workInProgressRoot = null
 }
 
-function getFlags(flags) {
+function getFlags(fiber) {
+  const { flags, deletions } = fiber
   switch (flags) {
     case Placement:
       return '插入'
     case Update:
       return '更新'
+    case ChildDeletion:
+      return (
+        '子节点有删除' +
+        deletions
+          .map((fiber) => `${fiber.key}#${fiber.memoizedProps.id}`)
+          .join(',')
+      )
     default:
       return flags
   }
@@ -48,6 +67,8 @@ function getFlags(flags) {
 
 function getTag(tag) {
   switch (tag) {
+    case FunctionComponent:
+      return 'FunctionComponent'
     case HostRoot:
       return 'HostRoot'
     case HostComponent:
@@ -62,6 +83,15 @@ function getTag(tag) {
 }
 
 function printFinishedWork(fiber) {
+  const { flags, deletions } = fiber
+  // if (flags === ChildDeletion) {
+  //   fiber.flags &= ~ChildDeletion
+  //   console.log(
+  //     '子节点有删除-------' +
+  //       deletions.map((fiber) => `${fiber.type}#${fiber.memoizedProps.id}`)
+  //   )
+  // }
+
   let child = fiber.child
   while (child) {
     printFinishedWork(child)
@@ -69,7 +99,7 @@ function printFinishedWork(fiber) {
   }
   if (fiber.flags !== 0) {
     console.log(
-      getFlags(fiber.flags),
+      getFlags(fiber),
       getTag(fiber.tag),
       fiber.type,
       fiber.memoizedProps
@@ -79,7 +109,8 @@ function printFinishedWork(fiber) {
 
 function commitRoot(root) {
   const { finishedWork } = root
-  // printFinishedWork(finishedWork)
+  printFinishedWork(finishedWork)
+  console.log('~~~~~~~~~~~~~~~~~~~~~')
   // 判断子树有没有副作用
   const subtreeHasEffects =
     (finishedWork.subtreeFlags & MutationMask) !== NoFlags
@@ -145,4 +176,5 @@ function completeUnitOfWork(unitOfWork) {
 
 function prepareFreshStack(root) {
   workInProgress = createWorkInProgress(root.current, null)
+  finishQueueingConcurrentUpdates()
 }

@@ -47,15 +47,15 @@ export function extractEvents(
     // 合成事件实例
     const event = new SyntheticEventCtor(
       reactName,
-      reactEventType,
+      domEventName,
       null,
       nativeEvent,
       nativeEventTarget
     )
-    dispatchQueue.push(
+    dispatchQueue.push({
       event,
-      listeners // 监听函数数组
-    )
+      listeners, // 监听函数数组
+    })
   }
 }
 

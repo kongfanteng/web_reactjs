@@ -1,8 +1,10 @@
 import {
   appendChild,
   insertBefore,
+  commitUpdate,
+  removeChild,
 } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
-import { MutationMask, Placement } from './ReactFiberFlags'
+import { MutationMask, Placement, Update } from './ReactFiberFlags'
 import {
   FunctionComponent,
   HostComponent,
@@ -10,21 +12,38 @@ import {
   HostText,
 } from './ReactWorkTags'
 
-/**
- * 遍历 fiber 树, 执行 fiber 上的副作用
- * @param {*} finishedWork - fiber 节点
- * @param {*} root - 根节点
- */
-export function commitMutationEffectsOnFiber(finishedWork, root) {
-  switch (finishedWork.tag) {
-    case FunctionComponent:
-    case HostRoot:
+let hostParent = null
+
+function recursivelyTraverseDeletionEffects(
+  finishedRoot,
+  nearestMountedAncestor,
+  parent
+) {
+  let child = parent.child
+  while (child !== null) {
+    commitDeletionEffectsOnFiber(finishedRoot, nearestMountedAncestor, child)
+    child = child.sibling
+  }
+}
+
+function commitDeletionEffectsOnFiber(
+  finishedRoot,
+  nearestMountedAncestor,
+  deletedFiber
+) {
+  switch (deletedFiber.tag) {
     case HostComponent:
     case HostText: {
-      // 先遍历它们的子节点，处理它们的子节点上的副作用
-      recursivelyTraverseMutationEffects(root, finishedWork)
-      // 再处理自己身上的副作用
-      commitReconciliationEffects(finishedWork)
+      // 当要删除一个节点时，先删除其子节点
+      recursivelyTraverseDeletionEffects(
+        finishedRoot,
+        nearestMountedAncestor,
+        deletedFiber
+      )
+      // 删除自身
+      if (hostParent !== null) {
+        removeChild(hostParent, deletedFiber.stateNode)
+      }
       break
     }
     default:
@@ -32,7 +51,97 @@ export function commitMutationEffectsOnFiber(finishedWork, root) {
   }
 }
 
+/**
+ * description: 副作用提交删除
+ * @param {*} root 根节点
+ * @param {*} returnFiber 父fiber
+ * @param {*} deletedFiber  删除的fiber
+ */
+function commitDeletionEffects(root, returnFiber, deletedFiber) {
+  let parent = returnFiber
+  //一直向上找，找到真实的DOM节点为此
+  findParent: while (parent !== null) {
+    switch (parent.tag) {
+      case HostComponent: {
+        hostParent = parent.stateNode
+        break findParent
+      }
+      case HostRoot: {
+        hostParent = parent.stateNode.containerInfo
+        break findParent
+      }
+    }
+    parent = parent.return
+  }
+  commitDeletionEffectsOnFiber(root, returnFiber, deletedFiber)
+  hostParent = null
+}
+
+/**
+ * 遍历 fiber 树, 执行 fiber 上的副作用
+ * @param {*} finishedWork - fiber 节点
+ * @param {*} root - 根节点
+ */
+export function commitMutationEffectsOnFiber(finishedWork, root) {
+  const current = finishedWork.alternate
+  const flags = finishedWork.flags
+  switch (finishedWork.tag) {
+    case FunctionComponent:
+    case HostRoot:
+    case HostText: {
+      // 先遍历它们的子节点，处理它们的子节点上的副作用
+      recursivelyTraverseMutationEffects(root, finishedWork)
+      // 再处理自己身上的副作用
+      commitReconciliationEffects(finishedWork)
+      break
+    }
+    case HostComponent:
+      // 先遍历它们的子节点，处理它们的子节点上的副作用
+      recursivelyTraverseMutationEffects(root, finishedWork)
+      // 再处理自己身上的副作用
+      commitReconciliationEffects(finishedWork)
+      // 处理 DOM 更新
+      if (flags & Update) {
+        // 获取真实 DOM
+        const instance = finishedWork.stateNode
+        // 更新真实 DOM
+        if (instance !== null) {
+          const newProps = finishedWork.memoizedProps
+          const oldProps = current !== null ? current.memoizedProps : newProps
+          const type = finishedWork.type
+          const updatePayload = finishedWork.updateQueue
+          finishedWork.updateQueue = null
+          if (updatePayload) {
+            commitUpdate(
+              instance,
+              updatePayload,
+              type,
+              oldProps,
+              newProps,
+              finishedWork
+            )
+          }
+        }
+      }
+      break
+    default:
+      break
+  }
+}
+/**
+ * description: 递归遍历处理副作用函数
+ * @param {*} root 根节点
+ * @param {*} parentFiber 父 fiber
+ */
 function recursivelyTraverseMutationEffects(root, parentFiber) {
+  const deletions = parentFiber.deletions
+  if (deletions !== null) {
+    for (let i = 0; i < deletions.length; i++) {
+      const childToDelete = deletions[i]
+      commitDeletionEffects(root, parentFiber, childToDelete)
+    }
+  }
+  // 再去处理剩下的子节点
   if (parentFiber.subtreeFlags & MutationMask) {
     let { child } = parentFiber
     while (child !== null) {

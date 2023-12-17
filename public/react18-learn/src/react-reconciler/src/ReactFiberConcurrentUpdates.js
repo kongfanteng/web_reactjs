@@ -1,4 +1,39 @@
 import { HostRoot } from './ReactWorkTags'
+const concurrentQueue = []
+let concurrentQueueIndex = 0
+
+/**
+ * description: 更新队列中插入更新函数
+ * @param {Object} fiber 函数组件中对应的 fiber
+ * @param {Object} queue 本 hook 对应的更新队列
+ * @param {Object} update 更新对象
+ */
+export function enqueueConcurrentHookUpdate(fiber, queue, update) {
+  enqueueUpdate(fiber, queue, update)
+  return getRootForUpdatedFiber(fiber)
+}
+
+function getRootForUpdatedFiber(sourceFiber) {
+  let node = sourceFiber
+  let parent = node.return
+  while (parent !== null) {
+    node = parent
+    parent = node.return
+  }
+  return node.tag === HostRoot ? node.stateNode : null
+}
+/**
+ * description: 把更新缓存到 concurrentQueue 数组中
+ * @param {Object} fiber 函数组件中对应的 fiber
+ * @param {Object} queue 本 hook 对应的更新队列
+ * @param {Object} update 更新对象
+ */
+function enqueueUpdate(fiber, queue, update) {
+  // 012 setNumber1 345 setNumber2 678 setNumber3
+  concurrentQueue[concurrentQueueIndex++] = fiber // 函数组件对应的 fiber
+  concurrentQueue[concurrentQueueIndex++] = queue // 要更新的 hook 对应的更新队列
+  concurrentQueue[concurrentQueueIndex++] = update // 更新对象
+}
 /**
  * 本来此文件要处理更新优先级的
  * 目前现在只实现向上找到根节点
@@ -15,4 +50,24 @@ export function markUpdateLaneFromFiberToRoot(sourceFiber) {
     return node.stateNode
   }
   return null
+}
+export function finishQueueingConcurrentUpdates() {
+  const endIndex = concurrentQueueIndex
+  concurrentQueueIndex = 0
+  let i = 0
+  while (i < endIndex) {
+    const fiber = concurrentQueue[i++]
+    const queue = concurrentQueue[i++]
+    const update = concurrentQueue[i++]
+    if (queue !== null && update !== null) {
+      const pending = queue.pending
+      if (pending === null) {
+        update.next = update
+      } else {
+        update.next = pending.next
+        pending.next = update
+      }
+      queue.pending = update
+    }
+  }
 }

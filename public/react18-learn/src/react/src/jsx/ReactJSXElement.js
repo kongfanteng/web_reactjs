@@ -24,11 +24,16 @@ function hasValidKey(config) {
 function hasValidRef(config) {
   return config.ref !== undefined
 }
-export function jsxDEV(type, config) {
+// React17 以前老版的转换函数中 key 是放在 config 里的,第三个参数放children
+// React17 之后新版的转换函数中 key 是在第三个参数中的，children 是放在config 里的
+export function jsxDEV(type, config, maybeKey) {
   let propName // 属性名
   const props = {} // 属性对象
   let key = null // 每个虚拟 DOM 可以有一个可选的 key，用以区分一个父节点下不同子节点
   let ref = null // 引入，后面可以通过这实现获取真实 DOM 的需求
+  if (typeof maybeKey !== 'undefined') {
+    key = maybeKey
+  }
   if (hasValidKey(config)) {
     key = config.key
   }

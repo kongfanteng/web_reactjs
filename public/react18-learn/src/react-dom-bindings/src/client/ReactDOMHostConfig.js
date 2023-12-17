@@ -1,4 +1,8 @@
-import { setInitialProperties } from './ReactDOMComponent'
+import {
+  diffProperties,
+  setInitialProperties,
+  updateProperties,
+} from './ReactDOMComponent'
 import { precacheFiberNode, updateFiberProps } from './ReactDOMComponentTree'
 
 export function shouldSetTextContent(type, props) {
@@ -42,6 +46,30 @@ export function finalizeInitialChildren(domElement, type, props) {
 export function appendChild(parentInstance, child) {
   parentInstance.appendChild(child)
 }
+/**
+ * description: 插入节点
+ * @param {Node} parent - 父 DOM 节点
+ * @param {Node} child - 子 DOM 节点
+ *  @param {Node} beforeChild - 插入到谁的前面，它也是一个 DOM 节点
+ */
 export function insertBefore(parentInstance, child, beforeChild) {
   parentInstance.insertBefore(child, beforeChild)
+}
+
+export function prepareUpdate(domElement, type, oldProps, newProps) {
+  return diffProperties(domElement, type, oldProps, newProps)
+}
+
+export function commitUpdate(
+  domElement,
+  updatePayload,
+  type,
+  oldProps,
+  newProps
+) {
+  updateProperties(domElement, updatePayload, type, oldProps, newProps)
+  updateFiberProps(domElement, newProps)
+}
+export function removeChild(parentInstance, child) {
+  parentInstance.removeChild(child)
 }
