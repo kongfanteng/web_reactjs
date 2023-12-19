@@ -9,12 +9,29 @@ export function useReducer(reducer, initialArg) {
   return dispatcher.useReducer(reducer, initialArg)
 }
 
-
 function resolveDispatcher() {
   return ReactCurrentDispatcher.current
 }
 
-export function useState(reducer, initialArg) {
+export function useState(initialState) {
   const dispatcher = resolveDispatcher()
-  return dispatcher.useState(reducer, initialArg)
+  return dispatcher.useState(initialState)
+}
+
+/**
+ * description: 副作用执行
+ * @param {*} create
+ * @example
+    1.发送ajax请求
+    2.设置订阅/启动定时器
+    3.手动更改真实DOM
+ */
+export function useEffect(create, deps) {
+  const dispatcher = resolveDispatcher()
+  return dispatcher.useEffect(create, deps)
+}
+
+export function useLayoutEffect(create, deps) {
+  const dispatcher = resolveDispatcher()
+  return dispatcher.useLayoutEffect(create, deps)
 }

@@ -59,7 +59,7 @@ export function completeWork(current, workInProgress) {
       bubbleProperties(workInProgress)
       break
     // 如果完成的是原生节点的话
-    case HostComponent:
+    case HostComponent: {
       // 创建真实的 DOM 节点
       const { type } = workInProgress
       if (current !== null && workInProgress.stateNode !== null) {
@@ -73,15 +73,17 @@ export function completeWork(current, workInProgress) {
       }
       bubbleProperties(workInProgress)
       break
+    }
     case FunctionComponent:
       bubbleProperties(workInProgress)
       break
-    case HostText:
+    case HostText: {
       // 如果完成的 fiber 是文本节点, 那就创建真实的文本节点
       const newText = newProps
       workInProgress.stateNode = createTextInstance(newText)
       // 向上冒泡属性
       bubbleProperties(workInProgress)
+    }
   }
 }
 

@@ -72,6 +72,7 @@ export function createWorkInProgress(current, pendingProps) {
   workInProgress.updateQueue = current.updateQueue
   workInProgress.sibling = current.sibling
   workInProgress.index = current.index
+  workInProgress.flags = current.flags
   return workInProgress
 }
 
