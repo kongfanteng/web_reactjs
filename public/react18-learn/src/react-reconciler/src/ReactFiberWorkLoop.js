@@ -1,4 +1,3 @@
-import { scheduleCallback } from 'scheduler'
 import { createWorkInProgress } from './ReactFiber'
 import { beginWork } from './ReactFiberBeginWork'
 import { completeWork } from './ReactFiberCompleteWork'
@@ -24,6 +23,12 @@ import {
   commitLayoutEffects,
 } from './ReactFiberCommitWork'
 
+import {
+  scheduleCallback,
+  NormalPriority as NormalSchedulerPriority,
+  shouldYield,
+} from 'scheduler'
+
 let workInProgress = null
 let workInProgressRoot = null
 let rootDoesHavePassiveEffect = false // 此根节点上有没有useEffect类似的副作用
@@ -38,13 +43,22 @@ export function scheduleUpdateOnFiber(root) {
   // 确保调度执行 root 上的更新
   ensureRootIsScheduled(root)
 }
+/**
+ * description: 保证 root 已经被调度
+ * @param {Fiber} root
+ */
 function ensureRootIsScheduled(root) {
   if (workInProgressRoot) return
   workInProgressRoot = root
   //告诉 浏览器要执行 performConcurrentWorkOnRoot
-  scheduleCallback(performConcurrentWorkOnRoot.bind(null, root))
+  scheduleCallback(
+    NormalSchedulerPriority,
+    performConcurrentWorkOnRoot.bind(null, root)
+  )
 }
+
 function performConcurrentWorkOnRoot(root) {
+  debugger
   // 第一次渲染以同步的方式渲染根节点，初次渲染的时候，都是同步
   renderRootSync(root)
   // 开始进入提交阶段, 就是执行副作用, 修改真实 DOM
@@ -121,11 +135,13 @@ function commitRoot(root) {
   const { finishedWork } = root
   printFinishedWork(finishedWork)
   if (
-    (finishedWork.subtreeFlags & Passive) !== NoFlags ||
+    (finishedWork.subtr00Flags & Passive) !== NoFlags ||
     (finishedWork.flags & Passive) !== NoFlags
   ) {
-    rootDoesHavePassiveEffect = true
-    scheduleCallback(flushPassiveEffect)
+    if (!rootDoesHavePassiveEffect) {
+      rootDoesHavePassiveEffect = true
+      scheduleCallback(NormalSchedulerPriority, flushPassiveEffect)
+    }
   }
   console.log('开始commit~~~~~~~~~~~~~~~~~~~~~')
   // 判断子树有没有副作用
