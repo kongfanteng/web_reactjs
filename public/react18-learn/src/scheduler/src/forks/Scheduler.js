@@ -56,7 +56,6 @@ function getCurrentTime() {
  */
 export function scheduleCallback(priorityLevel, callback) {
   debugger
-  push(priorityLevel, callback)
   // 获取当前的时候
   const currentTime = getCurrentTime()
   // 此任务的开始时间

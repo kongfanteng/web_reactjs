@@ -29,8 +29,11 @@ import {
   shouldYield,
 } from 'scheduler'
 
+import { NoLanes } from './ReactFiberLane'
+import { getCurrentUpdatePriority } from './ReactEventPriorities'
+
 let workInProgress = null
-let workInProgressRoot = null
+let workInProgressRoot = null // 正在构建中的根
 let rootDoesHavePassiveEffect = false // 此根节点上有没有useEffect类似的副作用
 let rootWithPendingPassiveEffects = null // 具有useEffect副作用的根节点 FiberRootNode,根fiber.stateNode
 
@@ -58,7 +61,6 @@ function ensureRootIsScheduled(root) {
 }
 
 function performConcurrentWorkOnRoot(root) {
-  debugger
   // 第一次渲染以同步的方式渲染根节点，初次渲染的时候，都是同步
   renderRootSync(root)
   // 开始进入提交阶段, 就是执行副作用, 修改真实 DOM
@@ -230,4 +232,23 @@ function completeUnitOfWork(unitOfWork) {
 function prepareFreshStack(root) {
   workInProgress = createWorkInProgress(root.current, null)
   finishQueueingConcurrentUpdates()
+}
+
+/**
+ * description: 请求一个更新车道
+ * @param current: 当前的根 fiber
+ * @return: 返回一个更新车道
+ * @description:
+ * 1. 从当前的根fiber中获取更新车道
+ * 2. 如果更新车道为空，创建一个更新车道
+ * 3. 返回更新车道
+ * @example:
+ */
+export function requestUpdateLane() {
+  const updateLane = getCurrentUpdatePriority()
+  if (updateLane !== NoLanes) {
+    return updateLane
+  }
+  const eventLane = getCurrentEventPriority()
+  return eventLane
 }

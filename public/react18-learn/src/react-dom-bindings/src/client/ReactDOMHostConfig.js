@@ -5,6 +5,8 @@ import {
 } from './ReactDOMComponent'
 import { precacheFiberNode, updateFiberProps } from './ReactDOMComponentTree'
 
+import { DefaultEventPriority } from 'react-reconciler/src/ReactEventPriorities'
+
 export function shouldSetTextContent(type, props) {
   return (
     typeof props.children === 'string' || typeof props.children === 'number'
@@ -72,4 +74,17 @@ export function commitUpdate(
 }
 export function removeChild(parentInstance, child) {
   parentInstance.removeChild(child)
+}
+
+/**
+ * description:
+ * 1. 获取当前事件优先级
+ * 2. 如果当前事件优先级不为 NoLanes，则返回当前事件优先级
+ * 3. 如果当前事件优先级为 NoLanes，则返回当前更新优先级
+ */
+export function getCurrentEventPriority() {
+  const currentEvent = window.event
+  if (currentEvent === undefined) {
+    return DefaultEventPriority
+  }
 }
