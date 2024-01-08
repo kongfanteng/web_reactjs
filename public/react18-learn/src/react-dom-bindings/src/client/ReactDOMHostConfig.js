@@ -7,6 +7,8 @@ import { precacheFiberNode, updateFiberProps } from './ReactDOMComponentTree'
 
 import { DefaultEventPriority } from 'react-reconciler/src/ReactEventPriorities'
 
+import { getEventPriority } from '../events/ReactDOMEventListener'
+
 export function shouldSetTextContent(type, props) {
   return (
     typeof props.children === 'string' || typeof props.children === 'number'
@@ -87,4 +89,5 @@ export function getCurrentEventPriority() {
   if (currentEvent === undefined) {
     return DefaultEventPriority
   }
+  return getEventPriority(currentEvent.type)
 }

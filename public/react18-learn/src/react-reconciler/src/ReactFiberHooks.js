@@ -173,7 +173,6 @@ function dispatchSetState(fiber, queue, action) {
   const eagerState = lastRenderedReducer(lastRenderedState, action)
   update.hasEagerState = true
   update.eagerState = eagerState
-  // debugger
   if (Object.is(eagerState, lastRenderedState)) {
     return
   }

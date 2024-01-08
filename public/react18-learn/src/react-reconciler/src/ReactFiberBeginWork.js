@@ -63,7 +63,7 @@ function updateHostComponent(current, workInProgress) {
  * @param {*} current - 老fiber
  * @param {*} workInProgress - 新的fiber
  */
-export function beginWork(current, workInProgress) {
+export function beginWork(current, workInProgress, renderLanes) {
   // logger(' '.repeat(indent.number) + 'beginWork', workInProgress)
   // indent.number += 2
   switch (workInProgress.tag) {
@@ -85,7 +85,7 @@ export function beginWork(current, workInProgress) {
       )
     }
     case HostRoot:
-      return updateHostRoot(current, workInProgress)
+      return updateHostRoot(current, workInProgress, renderLanes)
     case HostComponent:
       return updateHostComponent(current, workInProgress)
     case HostText:

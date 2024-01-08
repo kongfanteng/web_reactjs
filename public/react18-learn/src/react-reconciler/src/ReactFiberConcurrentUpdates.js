@@ -1,15 +1,25 @@
 import { HostRoot } from './ReactWorkTags'
 const concurrentQueue = []
 let concurrentQueueIndex = 0
-
 /**
  * description: 更新队列中插入更新函数
  * @param {Object} fiber 函数组件中对应的 fiber
  * @param {Object} queue 本 hook 对应的更新队列
  * @param {Object} update 更新对象
  */
-export function enqueueConcurrentHookUpdate(fiber, queue, update) {
-  enqueueUpdate(fiber, queue, update)
+export function enqueueConcurrentHookUpdate(fiber, queue, update, lane) {
+  enqueueUpdate(fiber, queue, update, lane)
+}
+
+/**
+ * description: 更新队列中插入更新函数
+ * @param {Object} fiber 函数组件中对应的 fiber
+ * @param {Object} queue 本 hook 对应的更新队列
+ * @param {Object} update 更新对象
+ * @param {lane} lane  共享队列的lane
+ */
+export function enqueueConcurrentClassUpdate(fiber, queue, update, lane) {
+  enqueueUpdate(fiber, queue, update, lane)
   return getRootForUpdatedFiber(fiber)
 }
 
@@ -28,11 +38,12 @@ function getRootForUpdatedFiber(sourceFiber) {
  * @param {Object} queue 本 hook 对应的更新队列
  * @param {Object} update 更新对象
  */
-function enqueueUpdate(fiber, queue, update) {
-  // 012 setNumber1 345 setNumber2 678 setNumber3
+function enqueueUpdate(fiber, queue, update, lane) {
+  // 0124 setNumber1 4567 setNumber2
   concurrentQueue[concurrentQueueIndex++] = fiber // 函数组件对应的 fiber
   concurrentQueue[concurrentQueueIndex++] = queue // 要更新的 hook 对应的更新队列
   concurrentQueue[concurrentQueueIndex++] = update // 更新对象
+  concurrentQueue[concurrentQueueIndex++] = lane // 更新的 lane
 }
 /**
  * 本来此文件要处理更新优先级的

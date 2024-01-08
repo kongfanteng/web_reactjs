@@ -1,24 +1,20 @@
-import { markUpdateLaneFromFiberToRoot } from './ReactFiberConcurrentUpdates'
+import { enqueueConcurrentClassUpdate, markUpdateLaneFromFiberToRoot } from './ReactFiberConcurrentUpdates'
 
 import assign from 'shared/assign'
 export const UpdateState = 0
 
-export function enqueueUpdate(fiber, update) {
+/**
+ * description: 调度更新函数
+ * @param {Fiber} fiber 要更新的fiber
+ * @param {object} update 更新函数
+ * @param {number} lane 调度优先级
+ */
+export function enqueueUpdate(fiber, update, lane) {
+  // 获取更新队列
   const updateQueue = fiber.updateQueue
-  const pending = updateQueue.pending
-  if (pending == null) {
-    update.next = update
-  } else {
-    update.next = pending.next
-    pending.next = update
-  }
-  // pending 要指向最后一个更新，最后一个更新 next 指向第一个更新
-  // 单向循环链表
-  updateQueue.shared.pending = update
-  // 返回根节点 从当前的 fiber 直接到根节点
-  // 待写逻辑：更新优先级（最后）
-  let root = markUpdateLaneFromFiberToRoot(fiber)
-  return root
+  // 获取共享队列
+  const sharedQueue = updateQueue.shared
+  return enqueueConcurrentClassUpdate(fiber, sharedQueue, update, lane)
 }
 
 /**
@@ -78,7 +74,24 @@ function getStateFromUpdate(update, prevState) {
   }
 }
 
-export function createUpdate() {
-  const update = { tag: UpdateState }
+/**
+ * description: 创建更新函数
+ */
+export function createUpdate(lane) {
+  const update = { tag: UpdateState, lane, next: null }
   return update
+}
+
+export function cloneUpdateQueue(current, workInProgress) {
+  const workInProgressQueue = workInProgress.updateQueue
+  const currentQueue = current.updateQueue
+  if (currentQueue === workInProgressQueue) {
+    const clone = {
+      base: currentQueue.baseState,
+      firstBaseUpdate: currentQueue.firstBaseUpdate,
+      lastBaseUpdate: currentQueue.lastBaseUpdate,
+      shared: currentQueue.shared,
+    }
+    workInProgress.updateQueue = clone
+  }
 }

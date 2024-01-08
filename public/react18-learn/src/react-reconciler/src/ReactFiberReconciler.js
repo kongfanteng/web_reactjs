@@ -16,10 +16,10 @@ export function updateContainer(element, container) {
   // 请求一个更新车道
   const lane = requestUpdateLane(current)
   // 创建更新
-  const update = createUpdate()
+  const update = createUpdate(lane)
   // 要更新的虚拟 DOM
   update.payload = { element }
   // 把此更新对象添加到 current 这个根 Fiber 的更新队列上
-  const root = enqueueUpdate(current, update)
-  scheduleUpdateOnFiber(root)
+  const root = enqueueUpdate(current, update, lane)
+  scheduleUpdateOnFiber(root, current, lane)
 }

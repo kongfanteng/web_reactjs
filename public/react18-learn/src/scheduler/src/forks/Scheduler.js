@@ -36,14 +36,32 @@ port1.onmessage = performWorkUntilDeadline
  * description: 调度器
  * @param {function} WorkLoop 刷新工作
  */
-function requestHostCallback(flushWork) {
+function requestHostCallback(workLoop) {
   // 回调函数
-  schedulerHostCallback = flushWork
+  schedulerHostCallback = workLoop
   // 执行工作直到截止时间
   schedulePerformWorkUntilDeadline()
 }
 function performWorkUntilDeadline() {
-  // if(schedulerHostCallback)...
+  if (schedulerHostCallback) {
+    // 先获取开始执行任务的时间
+    //表示时间片的开始
+    startTime = getCurrentTime()
+    // 是否有更多的工作要做
+    let hasMoreWork = true
+    try {
+      //执行 flushWork ，并判断有没有返回值
+      hasMoreWork = schedulerHostCallback(startTime)
+    } finally {
+      //执行完以后如果为true,说明还有更多工作要做
+      if (hasMoreWork) {
+        //继续执行
+        schedulePerformWorkUntilDeadline()
+      } else {
+        schedulerHostCallback = null
+      }
+    }
+  }
 }
 
 function getCurrentTime() {
@@ -55,7 +73,6 @@ function getCurrentTime() {
  * @param {function} callback 任务函数
  */
 export function scheduleCallback(priorityLevel, callback) {
-  debugger
   // 获取当前的时候
   const currentTime = getCurrentTime()
   // 此任务的开始时间
@@ -92,40 +109,22 @@ export function scheduleCallback(priorityLevel, callback) {
   // 向任务最小堆中添加此任务，排序的依据是过期时间
   push(taskQueue, newTask)
   // flushWork 执行工作，刷新工作，执行任务，司机接人
-  requestHostCallback(flushWork)
+  requestHostCallback(workLoop)
   return newTask
 }
 
 function schedulePerformWorkUntilDeadline() {
   // 发送消息
   port2.postMessage(null)
-  if (schedulerHostCallback) {
-    // 先获取开始执行任务的时间
-    startTime = getCurrentTime()
-    // 是否有更多的工作要做
-    let hasMoreWork = true
-    try {
-      hasMoreWork = schedulerHostCallback(startTime)
-    } finally {
-      // 执行完之后如果为 true，说明还有更多工作要做
-      if (hasMoreWork) {
-        // 继续执行
-        schedulePerformWorkUntilDeadline()
-      } else {
-        // 停止执行
-        schedulerHostCallback = null
-      }
-    }
-  }
 }
 
 /**
  * description: 开始执行任务队列中的任务
  * @param {number} startTime 开始执行任务的时间
  */
-function flushWork(startTime) {
-  return workLoop(startTime)
-}
+// function flushWork(startTime) {
+//   return workLoop(startTime)
+// }
 
 /**
  * description: 执行任务函数
@@ -134,6 +133,7 @@ function flushWork(startTime) {
 function workLoop(startTime) {
   let currentTime = startTime
   // 取出优先级最高的任务-局长
+  currentTask = peek(taskQueue)
   while (currentTask !== null) {
     // 如果此任务的过期时间小于当前时间，也就是没有过期，并且需要放弃，时间片到期
     if (currentTask.expirationTime > currentTime && shouldYieldToHost()) {
@@ -146,7 +146,7 @@ function workLoop(startTime) {
       currentTask.callback = null
       // 执行工作，如果返回新的函数，则表示当前的工作没有完成
       const didUserCallbackTimeout = currentTask.expirationTime <= currentTime
-      const continuationCallback = callback()
+      const continuationCallback = callback(didUserCallbackTimeout)
       if (typeof continuationCallback === 'function') {
         currentTask.callback = continuationCallback
         return true // has more work
@@ -185,10 +185,11 @@ function shouldYieldToHost() {
 }
 
 export {
+  scheduleCallback as unstable_scheduleCallback,
   shouldYieldToHost as shouldYield,
-  ImmediatePriority,
-  UserBlockingPriority,
-  LowPriority,
-  NormalPriority,
-  IdlePriority,
+  ImmediatePriority as unstable_ImmediatePriority,
+  UserBlockingPriority as unstable_UserBlockingPriority,
+  NormalPriority as unstable_NormalPriority,
+  LowPriority as unstable_LowPriority,
+  IdlePriority as unstable_IdlePriority,
 }
