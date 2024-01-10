@@ -1,6 +1,6 @@
 import { shouldSetTextContent } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
 import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber'
-import { processUpdateQueue } from './ReactFiberClassUpdateQueue'
+import { cloneUpdateQueue, processUpdateQueue } from './ReactFiberClassUpdateQueue'
 import { renderWithHooks } from './ReactFiberHooks'
 import {
   FunctionComponent,
@@ -29,9 +29,23 @@ function reconcileChildren(current, workInProgress, nextChildren) {
     )
   }
 }
-function updateHostRoot(current, workInProgress) {
+// function updateHostRoot(current, workInProgress, renderLanes) {
+//   const nextProps = workInProgress.pendingProps
+//   cloneUpdateQueue(current, workInProgress)
+//   //需要知道它的子虚拟DOM，知道它的儿子的虚拟DOM信息
+//   processUpdateQueue(workInProgress, nextProps, renderLanes) //workInProgress.memoizedState={ element }
+//   const nextState = workInProgress.memoizedState
+//   //nextChildren就是新的子虚拟DOM
+//   const nextChildren = nextState.element //h1
+//   //根据新的虚拟DOM生成子fiber链表
+//   reconcileChildren(current, workInProgress, nextChildren)
+//   return workInProgress.child //{tag:5,type:'h1'}
+// }
+function updateHostRoot(current, workInProgress, renderLanes) {
+  const nextProps = workInProgress.pendingProps
+  cloneUpdateQueue(current, workInProgress)
   // 需要知道它的子虚拟 DOM，知道它的儿子的虚拟 DOM 信息
-  processUpdateQueue(workInProgress) // workInProgress.memoizedState={ element }
+  processUpdateQueue(workInProgress, nextProps, renderLanes) // workInProgress.memoizedState={ element }
   const nextState = workInProgress.memoizedState
   // nextChildren 就是新的子虚拟 DOM
   const nextChildren = nextState.element

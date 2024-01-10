@@ -57,3 +57,10 @@ export function getHighestPriorityLane(lanes) {
    */
   return lanes & -lanes
 }
+
+export function isSubsetOfLanes(set, subset) {
+  return (set & subset) === subset
+}
+export function mergeLanes(a, b) {
+  return a | b
+}

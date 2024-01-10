@@ -9,6 +9,7 @@ let concurrentQueueIndex = 0
  */
 export function enqueueConcurrentHookUpdate(fiber, queue, update, lane) {
   enqueueUpdate(fiber, queue, update, lane)
+  return getRootForUpdatedFiber(fiber)
 }
 
 /**
@@ -70,6 +71,7 @@ export function finishQueueingConcurrentUpdates() {
     const fiber = concurrentQueue[i++]
     const queue = concurrentQueue[i++]
     const update = concurrentQueue[i++]
+    const lane = concurrentQueue[i++]
     if (queue !== null && update !== null) {
       const pending = queue.pending
       if (pending === null) {

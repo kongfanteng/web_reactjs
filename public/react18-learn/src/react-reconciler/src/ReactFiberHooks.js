@@ -1,5 +1,5 @@
 import ReactSharedInternals from 'shared/ReactSharedInternals'
-import { scheduleUpdateOnFiber } from './ReactFiberWorkLoop'
+import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop'
 import { enqueueConcurrentHookUpdate } from './ReactFiberConcurrentUpdates'
 
 import {
@@ -161,8 +161,18 @@ function mountState(initialState) {
   return [hook.memoizedState, dispatch]
 }
 
+/**
+ * description:
+ * @param {Fiber} fiber
+ * @param {Array} queue
+ * @param {Object} action
+ */
 function dispatchSetState(fiber, queue, action) {
+  debugger
+  // 获取当前的更新赛道 1
+  const lane = requestUpdateLane()
   const update = {
+    lane, // 本次更新优先级就是 1
     action,
     hasEagerState: false, // 是否有急切的更新
     eagerState: null, //急切的更新状态
@@ -179,8 +189,8 @@ function dispatchSetState(fiber, queue, action) {
   //先获取队列上的老的状态和老的reducer
 
   // 下面是真正的入队更新，并调度更新逻辑
-  const root = enqueueConcurrentHookUpdate(fiber, queue, update)
-  scheduleUpdateOnFiber(root)
+  const root = enqueueConcurrentHookUpdate(fiber, queue, update, lane)
+  scheduleUpdateOnFiber(root, fiber, lane)
 }
 // useState 其实就是一个内置了 reducer 的 useReducer
 function baseStateReducer(state, action) {

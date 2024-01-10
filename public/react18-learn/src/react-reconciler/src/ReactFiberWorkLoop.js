@@ -37,6 +37,7 @@ import {
   ContinuousEventPriority,
   DefaultEventPriority,
   IdleEventPriority,
+  setCurrentUpdatePriority,
 } from './ReactEventPriorities'
 import {
   scheduleCallback as Scheduler_scheduleCallback,
@@ -46,6 +47,10 @@ import {
   NormalPriority as NormalSchedulerPriority,
   IdlePriority as IdleSchedulerPriority,
 } from './Scheduler'
+import {
+  scheduleSyncCallback,
+  flushSyncCallbacks,
+} from './ReactFiberSyncTaskQueue'
 
 let workInProgress = null
 let workInProgressRoot = null // 正在构建中的根
@@ -70,10 +75,13 @@ export function scheduleUpdateOnFiber(root, fiber, lane) {
  */
 function ensureRootIsScheduled(root) {
   // 获取当前优先级最高的车道
-  const nextLanes = getNextLanes(root, NoLanes)
-  let newCallbackPriority = getHighestPriorityLane(nextLanes)
+  const nextLanes = getNextLanes(root, NoLanes) // 16
+  let newCallbackPriority = getHighestPriorityLane(nextLanes) // 16
   if (newCallbackPriority === SyncLane) {
-    // TODO
+    // 先把 performSyncWorkOnRoot 添回到同步队列中
+    scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root))
+    // 再把 flushSyncCallbacks 放入微任务
+    queueMicrotask(flushSyncCallbacks)
   } else {
     // 如果不是同步，就需要调度一个新的任务
     let schedulerPriorityLevel
@@ -120,6 +128,7 @@ function performConcurrentWorkOnRoot(root) {
   root.finishedWork = finishedWork
   commitRoot(root)
   workInProgressRoot = null
+  return null
 }
 
 function getFlags(fiber) {
@@ -186,6 +195,17 @@ function printFinishedWork(fiber) {
 }
 
 function commitRoot(root) {
+  const previousUpdatePriority = getCurrentUpdatePriority()
+  try {
+    setCurrentUpdatePriority(DiscreteEventPriority)
+    commitRootImpl(root)
+  } finally {
+    // 完成提交
+    setCurrentUpdatePriority(previousUpdatePriority)
+  }
+}
+
+function commitRootImpl(root) {
   const { finishedWork } = root
   workInProgressRoot = null
   workInProgressRootRenderLanes = null
@@ -232,9 +252,18 @@ function flushPassiveEffect() {
   }
 }
 
+/**
+ * description: 渲染根同步
+ * @param {Fiber} root
+ */
 function renderRootSync(root, renderLanes) {
-  // 开始构建 fiber 树
-  prepareFreshStack(root, renderLanes)
+  // 如果新的根和老的根不一样，或者新的渲染优先级和老的渲染优先级不一样
+  if (
+    root !== workInProgressRoot ||
+    workInProgressRootRenderLanes !== renderLanes
+  ) {
+    prepareFreshStack(root, renderLanes)
+  }
   workLoopSync()
 }
 
@@ -288,7 +317,6 @@ function completeUnitOfWork(unitOfWork) {
  * @param {*} root
  */
 function prepareFreshStack(root, renderLanes) {
-  debugger
   if (
     root !== workInProgressRoot ||
     workInProgressRootRenderLanes !== renderLanes
@@ -316,4 +344,20 @@ export function requestUpdateLane() {
   }
   const eventLane = getCurrentEventPriority()
   return eventLane
+}
+
+/**
+ * description: 在根上执行同步工作
+ * @param {*} root
+ */
+function performSyncWorkOnRoot(root) {
+  // 获得最高优的 lane
+  const lanes = getNextLanes(root)
+  // 渲染新的 fiber 树
+  renderRootSync(root, lanes)
+  // 获取新渲染完成的 fiber 根节点
+  const finishedWork = root.current.alternate
+  root.finishedWork = finishedWork
+  commitRoot(root)
+  return null
 }
