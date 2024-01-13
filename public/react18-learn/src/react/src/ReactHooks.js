@@ -35,3 +35,8 @@ export function useLayoutEffect(create, deps) {
   const dispatcher = resolveDispatcher()
   return dispatcher.useLayoutEffect(create, deps)
 }
+
+export function useRef(initialValue) {
+  const dispatcher = resolveDispatcher()
+  return dispatcher.useRef(initialValue)
+}

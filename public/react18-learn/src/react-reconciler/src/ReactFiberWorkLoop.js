@@ -23,11 +23,17 @@ import {
   commitLayoutEffects,
 } from './ReactFiberCommitWork'
 import {
+  NoLane,
   NoLanes,
+  NoTimestamp,
   SyncLane,
   getHighestPriorityLane,
   getNextLanes,
+  includesBlockingLane,
+  includesExpiredLane,
+  markRootFinished,
   markRootUpdated,
+  markStarvedLanesAsExpired,
 } from './ReactFiberLane'
 import { getCurrentEventPriority } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
 import {
@@ -46,6 +52,8 @@ import {
   UserBlockingPriority as UserBlockingSchedulerPriority,
   NormalPriority as NormalSchedulerPriority,
   IdlePriority as IdleSchedulerPriority,
+  cancelCallback as Scheduler_cancelCallback,
+  now,
 } from './Scheduler'
 import {
   scheduleSyncCallback,
@@ -58,30 +66,66 @@ let rootDoesHavePassiveEffect = false // 此根节点上有没有useEffect类似
 let rootWithPendingPassiveEffects = null // 具有useEffect副作用的根节点 FiberRootNode,根fiber.stateNode
 let workInProgressRootRenderLanes = NoLanes
 
+// 构建 fiber 树正在进行中
+const RootInProgress = 0
+//构建 fiber 树已经完成
+const RootCompleted = 5
+//当渲染工作结束的时候当前的 fiber 树处于什么状态,默认进行中
+let workInProgressRootExitStatus = RootInProgress
+//保存当前的事件发生的时间
+let currentEventTime = NoTimestamp
+
 /**
- * description: 根节点计划更新函数
- * @param {*} root 根节点
- * @param {*} fiber 要更新的 fiber
- * @param {*} lane 要更新的 lane
+ * description: 计划更新 root
+ * 源码中此处有一个任务的功能水
+ * @param {*} root
+ * @param {*} fiber
+ * @param {*} lane
+ * @param {*} eventTime
  */
-export function scheduleUpdateOnFiber(root, fiber, lane) {
+export function scheduleUpdateOnFiber(root, fiber, lane, eventTime) {
   markRootUpdated(root, lane)
   // 确保调度执行 root 上的更新
-  ensureRootIsScheduled(root)
+  ensureRootIsScheduled(root, eventTime)
 }
 /**
  * description: 保证 root 已经被调度
  * @param {Fiber} root
  */
-function ensureRootIsScheduled(root) {
+function ensureRootIsScheduled(root, currentTime) {
+  // 先获取当前根上执行任务
+  const existingCallbackNode = root.callbackNode
+  // 把所有饿死的赛道标记为过期
+  markStarvedLanesAsExpired(root, currentTime)
   // 获取当前优先级最高的车道
-  const nextLanes = getNextLanes(root, NoLanes) // 16
+  const nextLanes = getNextLanes(root, workInProgressRootRenderLanes) //16
+  // 如果没有车道，则不进行调度
+  if (nextLanes === NoLanes) {
+    return
+  }
+  // 获取新的调度优先级
   let newCallbackPriority = getHighestPriorityLane(nextLanes) // 16
+  // 获取现在根上正在运行的优先级
+  const existingCallbackPriority = root.callbackPriority
+  // 如果新的优先级和老的优先级一样，则可以进行批量更新
+  // QR-两次批量更新进行合并？目的，fiber 渲染一次；
+  if (existingCallbackPriority === newCallbackPriority) {
+    return
+  }
+
+  if (existingCallbackNode !== null) {
+    console.log('cancelCallback', existingCallbackNode)
+    Scheduler_cancelCallback(existingCallbackNode)
+  }
+  // 新的回调任务
+  let newCallbackNode
   if (newCallbackPriority === SyncLane) {
     // 先把 performSyncWorkOnRoot 添回到同步队列中
     scheduleSyncCallback(performSyncWorkOnRoot.bind(null, root))
     // 再把 flushSyncCallbacks 放入微任务
     queueMicrotask(flushSyncCallbacks)
+    // 如果同步执行的话
+    newCallbackNode = null
   } else {
     // 如果不是同步，就需要调度一个新的任务
     let schedulerPriorityLevel
@@ -102,33 +146,74 @@ function ensureRootIsScheduled(root) {
         schedulerPriorityLevel = NormalSchedulerPriority
         break
     }
-    Scheduler_scheduleCallback(
+    newCallbackNode = Scheduler_scheduleCallback(
       schedulerPriorityLevel,
       performConcurrentWorkOnRoot.bind(null, root)
     )
   }
-  if (workInProgressRoot) return
-  workInProgressRoot = root
+  // 在根节点的执行的任务是 newCallbackNode
+  root.callbackNode = newCallbackNode
+  root.callbackPriority = newCallbackPriority
 }
 
 /**
  * description：根据 fiber 构建 fiber 树，创建真实 DOM，把真实 DOM 挂载到根节点上
  * @param {*} root
  */
-function performConcurrentWorkOnRoot(root) {
+function performConcurrentWorkOnRoot(root, didTimeout) {
+  // 先获取当前根节点上的任务
+  const originalCallbackNode = root.callbackNode
   // 获取当前优先级最高的车道
-  const nextLanes = getNextLanes(root, NoLanes) // 16
-  if (nextLanes === NoLanes) {
+  const lanes = getNextLanes(root, NoLanes) //16
+  if (lanes !== NoLanes) {
     return null
   }
+  // 如果不包含阻塞的车道，并且没有超时，就可以并行渲染,就是启用时间分片
+  // 所以说默认更新车道是同步的,不能启用时间分片
+  // 是否不包含阻塞车道
+  const nonIncludesBlockingLane = !includesBlockingLane(root, lanes)
+  // 是否不包含过期的车道
+  const nonIncludesExpiredLane = !includesExpiredLane(root, lanes)
+  // 时间片没有过期
+  const nonTimedOut = !didTimeout
+  // 如果不包含阻塞的车道，并且没有超时，就可以并行渲染,就是启用时间分片
+  // 所以说默认更新车道是同步的，不能启用时间分片
+  // 三个变量都是真，才能进行时间分片，也就是进行并发渲染，也就是可以中断执行
+  const shouldTimeSlice =
+    nonIncludesBlockingLane && nonIncludesExpiredLane && nonTimedOut
+  console.log('shouldTimeSlice:', shouldTimeSlice)
   // 第一次渲染以同步的方式渲染根节点，初次渲染的时候，都是同步
-  renderRootSync(root, nextLanes)
-  // 开始进入提交阶段, 就是执行副作用, 修改真实 DOM
-  const finishedWork = root.current.alternate
-  root.finishedWork = finishedWork
-  commitRoot(root)
-  workInProgressRoot = null
+  const exitStatus = shouldTimeSlice
+    ? renderRootConcurrent(root, lanes)
+    : renderRootSync(root, lanes)
+  // 如果不是渲染中的话，那说明肯定渲染完了
+  if (exitStatus !== RootInProgress) {
+    const finishedWork = root.current.alternate
+    root.finishedWork = finishedWork
+    commitRoot(root)
+  }
+  // 说明任务没有完成
+  if (root.callbackNode === originalCallbackNode) {
+    // 把此函数返回，下次接着干
+    return performConcurrentWorkOnRoot.bind(null, root)
+  }
   return null
+}
+
+function renderRootConcurrent(root, lanes) {
+  // 因为在构建 fiber 树的过程中，此方法会反复进入，会进入多次
+  // 只有在第一次进来的时候会创建新的 fiber 树，也就是新的 fiber 树
+  if (workInProgressRoot !== root || workInProgressRootRenderLanes !== lanes) {
+    prepareFreshStack(root, lanes)
+  }
+  // 在当前分配的时间片(5ms)内执行 fiber 树的构建或者说渲染
+  workLoopConcurrent()
+  // 如果 workInProgress 不为 null，说明 fiber 树的构建还没有完成
+  if (workInProgress !== null) {
+    return RootInProgress
+  }
+  // 如果 workInProgress 是null了说明渲染工作完全结束了
+  return workInProgressRootExitStatus
 }
 
 function getFlags(fiber) {
@@ -206,30 +291,37 @@ function commitRoot(root) {
 }
 
 function commitRootImpl(root) {
+  // 先获取新的构建好的 fiber 树的根 fiber tag=3
   const { finishedWork } = root
+  console.log('commit', finishedWork.child.memoizedState.memoizedState[0])
   workInProgressRoot = null
-  workInProgressRootRenderLanes = null
-  printFinishedWork(finishedWork)
+  workInProgressRootRenderLanes = NoLanes
+  root.callbackNode = null
+  root.callbackPriority = NoLane
+  // 合并统计当前新的根上剩下的车道
+  const remainingLanes = mergeLanes(finishedWork.lanes, finishedWork.childLanes)
+  markRootFinished(root, remainingLanes)
   if (
-    (finishedWork.subtr00Flags & Passive) !== NoFlags ||
+    (finishedWork.subtreeFlags & Passive) !== NoFlags ||
     (finishedWork.flags & Passive) !== NoFlags
   ) {
     if (!rootDoesHavePassiveEffect) {
       rootDoesHavePassiveEffect = true
-      scheduleCallback(NormalSchedulerPriority, flushPassiveEffect)
+      Scheduler_scheduleCallback(NormalSchedulerPriority, flushPassiveEffect)
     }
   }
-  console.log('开始commit~~~~~~~~~~~~~~~~~~~~~')
+  // printFinishedWork(finishedWork)
+  // console.log('开始commit~~~~~~~~~~~~~~~~~~~~~')
   // 判断子树有没有副作用
   const subtreeHasEffects =
     (finishedWork.subtreeFlags & MutationMask) !== NoFlags
   const rootHasEffect = (finishedWork.flags & MutationMask) !== NoFlags
   // 如果自己的副作用或者子节点有副作用就进行提交 DOM 操作
   if (subtreeHasEffects || rootHasEffect) {
-    console.log('DOM执行变更commitMutationEffectsOnFiber~~~~~~~~~~~~~~~~~~~~~')
+    // console.log('DOM执行变更commitMutationEffectsOnFiber~~~~~~~~~~~~~~~~~~~~~')
     // 当 DOM 执行变更之后
     commitMutationEffectsOnFiber(finishedWork, root)
-    console.log('DOM执行变更commitLayoutEffects~~~~~~~~~~~~~~~~~~~~~')
+    // console.log('DOM执行变更commitLayoutEffects~~~~~~~~~~~~~~~~~~~~~')
     // 执行 layout effect
     commitLayoutEffects(finishedWork, root)
     if (rootDoesHavePassiveEffect) {
@@ -238,7 +330,10 @@ function commitRootImpl(root) {
     }
   }
   // 等 DOM 变更后, 就可以把让 root 的 current 指向新的 fiber 树
+  // 在提交之后，因为根上可能会有跳过的更新，所以需要重新再次调度
   root.current = finishedWork
+  // 在提交之后，因为根上可能会有跳过的更新，所以需要重新再次调度
+  ensureRootIsScheduled(root, now())
 }
 
 function flushPassiveEffect() {
@@ -265,6 +360,7 @@ function renderRootSync(root, renderLanes) {
     prepareFreshStack(root, renderLanes)
   }
   workLoopSync()
+  return RootCompleted
 }
 
 function workLoopSync() {
@@ -310,20 +406,31 @@ function completeUnitOfWork(unitOfWork) {
     completedWork = returnFiber
     workInProgress = completedWork
   } while (completedWork !== null)
+  // 如果走到了这里，说明整个 fiber 树全部构建完毕,把构建状态设置为空成
+  if (workInProgressRootExitStatus === RootInProgress) {
+    workInProgressRootExitStatus = RootCompleted
+  }
 }
+
+// function prepareFreshStack(root, renderLanes) {
+//   if (
+//     root !== workInProgressRoot ||
+//     workInProgressRootRenderLanes !== renderLanes
+//   ) {
+//     workInProgress = createWorkInProgress(root.current, null)
+//   }
+//   workInProgressRootRenderLanes = renderLanes
+//   finishQueueingConcurrentUpdates()
+// }
 
 /**
  * description: 准备刷新栈
  * @param {*} root
  */
 function prepareFreshStack(root, renderLanes) {
-  if (
-    root !== workInProgressRoot ||
-    workInProgressRootRenderLanes !== renderLanes
-  ) {
-    workInProgress = createWorkInProgress(root.current, null)
-  }
+  workInProgress = createWorkInProgress(root.current, null)
   workInProgressRootRenderLanes = renderLanes
+  workInProgressRoot = root
   finishQueueingConcurrentUpdates()
 }
 
@@ -360,4 +467,29 @@ function performSyncWorkOnRoot(root) {
   root.finishedWork = finishedWork
   commitRoot(root)
   return null
+}
+
+function sleep(duration) {
+  const timeStamp = new Date().getTime()
+  const endTime = timeStamp + duration
+  while (true) {
+    if (new Date().getTime() > endTime) {
+      return
+    }
+  }
+}
+
+function workLoopConcurrent() {
+  // 如果有下一个要构建的 fiber 并且时间片没有过期
+  while (workInProgress !== null && !shouldYield()) {
+    console.log('shouldYield()', shouldYield(), workInProgress)
+    sleep(5)
+    performUnitOfWork(workInProgress)
+  }
+}
+
+// 请求当前的时间
+export function requestEventTime() {
+  currentEventTime = now()
+  return currentEventTime // performance.now
 }

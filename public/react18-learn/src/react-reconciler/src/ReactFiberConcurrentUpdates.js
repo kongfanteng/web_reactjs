@@ -1,3 +1,4 @@
+import { mergeLanes } from './ReactFiberLane'
 import { HostRoot } from './ReactWorkTags'
 const concurrentQueue = []
 let concurrentQueueIndex = 0
@@ -45,6 +46,8 @@ function enqueueUpdate(fiber, queue, update, lane) {
   concurrentQueue[concurrentQueueIndex++] = queue // 要更新的 hook 对应的更新队列
   concurrentQueue[concurrentQueueIndex++] = update // 更新对象
   concurrentQueue[concurrentQueueIndex++] = lane // 更新的 lane
+  // 当我们向一个 fiber 上添加一个更新的时候，要把此更新的赛道合并到此 fiber 的赛道上
+  fiber.lanes = mergeLanes(fiber.lanes, lane)
 }
 /**
  * 本来此文件要处理更新优先级的

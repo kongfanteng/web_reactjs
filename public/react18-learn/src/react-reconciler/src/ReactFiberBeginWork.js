@@ -1,6 +1,9 @@
 import { shouldSetTextContent } from 'react-dom-bindings/src/client/ReactDOMHostConfig'
 import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber'
-import { cloneUpdateQueue, processUpdateQueue } from './ReactFiberClassUpdateQueue'
+import {
+  cloneUpdateQueue,
+  processUpdateQueue,
+} from './ReactFiberClassUpdateQueue'
 import { renderWithHooks } from './ReactFiberHooks'
 import {
   FunctionComponent,
@@ -131,13 +134,15 @@ export function updateFunctionComponent(
   current,
   workInProgress,
   Component,
-  props
+  nextProps,
+  renderLanes
 ) {
   const nextChildren = renderWithHooks(
     current,
     workInProgress,
     Component,
-    props
+    nextProps,
+    renderLanes
   )
   reconcileChildren(current, workInProgress, nextChildren)
   return workInProgress.child

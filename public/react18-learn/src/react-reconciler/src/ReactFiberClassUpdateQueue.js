@@ -27,7 +27,7 @@ export function enqueueUpdate(fiber, update, lane) {
  */
 export function initialUpdateQueue(fiber) {
   // 创建一个新的更新队列
-  // pending其实是一个循环链表
+  // pending 其实是一个循环链表
   const queue = {
     baseState: fiber.memoizedState, // 本次更新前，当前的 fiber 的状态，更新会基于它进行计算
     firstBaseUpdate: null, // 本次更新前该 fiber 上保存的上次跳过的更新链表头

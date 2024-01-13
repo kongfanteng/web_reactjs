@@ -1,4 +1,5 @@
 import { NoFlags } from './ReactFiberFlags'
+import { NoLanes } from './ReactFiberLane'
 import {
   HostComponent,
   HostRoot,
@@ -38,6 +39,9 @@ export function FiberNode(tag, pendingProps, key) {
   this.alternate = null
   this.index = 0
   this.deletions = null
+  this.lanes = NoLanes
+  this.childLanes = NoLanes
+  this.ref = null
 }
 export function createFiber(tag, pendingProps, key) {
   return new FiberNode(tag, pendingProps, key)
@@ -72,7 +76,10 @@ export function createWorkInProgress(current, pendingProps) {
   workInProgress.updateQueue = current.updateQueue
   workInProgress.sibling = current.sibling
   workInProgress.index = current.index
+  workInProgress.ref = current.ref
   workInProgress.flags = current.flags
+  workInProgress.lanes = current.lanes
+  workInProgress.childLanes = current.lanes
   return workInProgress
 }
 
